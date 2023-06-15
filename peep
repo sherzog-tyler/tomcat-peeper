@@ -1,0 +1,92 @@
+#!/bin/bash
+##############################
+#PEEPING TOM - FILE WATCHER
+#Version: 1
+#Instructions: Start in src/main/webapp folder
+##############################
+
+#COLORS
+RED=`tput setaf 1`
+GREEN=`tput setaf 2`
+CYAN=`tput setaf 6`
+RESET=`tput sgr0`
+
+echo "${CYAN}#################################"
+echo "#################################"
+echo "## PEEPING TOMBOT              ##"
+echo "## Watching you change things  ##"
+echo "## And then doing things...    ##"
+echo "## A true gentlebot.           ##"
+echo "## [ 0.0]                      ##"
+echo "#################################${RESET}"
+
+## CHECK FOR FSWATCH
+if ! [ -x "$(command -v fswatch)" ]; then
+	echo "${RED}"
+	echo "[ERROR] fswatch is not installed.${RESET}"
+	echo "[INFO]  fswatch can be install via: brew install fswatch"
+	echo ""
+	exit 1
+fi
+
+## CHECK FOR $TOMCAT_HOME
+if [ ! -d "$TOMCAT_HOME" ]; then
+	echo "${RED}"
+	echo "[ERROR] TOMCAT_HOME not in path.${RESET}"
+	echo "[INFO]  Make sure TOMCAT_HOME is in the profile and is exported"
+	echo ""
+	exit 1
+fi
+
+# CONSTS
+TC_APPNAME=$1
+TC_WEBAPPS="$TOMCAT_HOME/webapps/"
+TC_WEBAPP="$TOMCAT_HOME/webapps/$TC_APPNAME"
+TC_ACTIVE_DIR=$(pwd)
+
+# CHECK FOR TOMCAT WEBAPP DIR VAR
+if [ -n "$1" ] && [ -d "$TC_WEBAPP" ]; then
+
+	echo "${GREEN}"
+	echo "App Name: $TC_APPNAME"
+	echo "App Path:"
+	echo "$TC_WEBAPP"
+	echo "-------------------------------------------------------"
+	echo "${RESET}"
+	echo "${CYAN}[ 0.0] Peeping for changes...${RESET}"
+	echo ""
+
+	TC_HOT_COPY() {
+		CURRTIME=`date +"%H:%M:%S"`
+		#Modify Changed File Path (remove abs path)
+		CH_FILE_PATH=${1#"$TC_ACTIVE_DIR"}
+		#Remove first /
+		CH_FILE=${CH_FILE_PATH#"/"}
+
+		echo "${GREEN}[${CURRTIME}]${RESET} Change Detected!"
+		echo "[   0_0  ] Copying $CH_FILE"
+		echo "[  0_0   ] To $TC_WEBAPP/$CH_FILE"
+		echo "[   0_o  ] -[ *shoves file*"
+		
+		cp -fR "$CH_FILE" "$TC_WEBAPP/$CH_FILE" || echo "Copy failed, you may need to package and redeploy."
+		echo "${GREEN}[${CURRTIME}]${RESET} Copy done. Peeping some more..."
+		echo "[  0.0   ]"
+	}
+
+	export TC_APPNAME TC_WEBAPPS TC_WEBAPP TC_ACTIVE_DIR GREEN RESET
+	export -f TC_HOT_COPY
+
+	## WATCH AND RUN ON CHANGE
+	fswatch -0 -e .DS_Store . | xargs -0 -n1 -I {} bash -c 'TC_HOT_COPY "{}"' _
+
+	# unset TC_APPNAME TC_WEBAPPS
+	# unset -f TC_HOT_COPY
+
+else
+	echo "${RED}[ERROR] Directory in TOMCAT_HOME/webapps/... does not exist"
+	echo "[ERROR] You may need to mvn package and deploy the app first"
+	echo "[ERROR] Exiting"
+	echo "${RESET}"
+
+fi
+exit
